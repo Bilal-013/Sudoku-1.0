@@ -1,20 +1,25 @@
 /**
  * Frontend execution logic for the AI Sudoku Solver.
- * Handles board drawing, selections, constraints, and API hooks.
  */
 
 const API_BASE_URL = 'http://localhost:8000';
 
+let initialBoard = [];
+let currentBoard = [];
+let selectedDifficulty = 'medium';
+let selectedAlgorithm = 'backtracking';
+let eventSource = null;
+let chartInstance = null;
+
 document.addEventListener('DOMContentLoaded', () => {
-    initBoard();
-    initNumpad();
-    
-    // Initial mockup state based on screenshot provided
-    mockInitialDemoState();
+    initGridDom();
+    initEventListeners();
+    generatePuzzle();
 });
 
-function initBoard() {
+function initGridDom() {
     const boardEl = document.getElementById('sudoku-board');
+    boardEl.innerHTML = '';
     
     for (let i = 0; i < 81; i++) {
         const cell = document.createElement('div');
@@ -23,84 +28,298 @@ function initBoard() {
         
         const row = Math.floor(i / 9);
         const col = i % 9;
+        cell.dataset.row = row;
+        cell.dataset.col = col;
         
-        // Emphasize right borders for columns 2 and 5 (0-indexed)
-        if (col === 2 || col === 5) {
-            cell.classList.add('col-group-end');
-        }
-        
-        // Emphasize bottom borders for rows 2 and 5
-        if (row === 2 || row === 5) {
-            cell.classList.add('row-group-end');
-        }
-        
-        // Click listener for highlighting mechanism
-        cell.addEventListener('click', () => handleCellClick(i));
+        if (col === 2 || col === 5) cell.classList.add('col-group-end');
+        if (row === 2 || row === 5) cell.classList.add('row-group-end');
         
         boardEl.appendChild(cell);
     }
 }
 
-function initNumpad() {
-    const numpadEl = document.getElementById('numpad');
-    // Generates keys 1-9
-    for (let i = 1; i <= 9; i++) {
-        const btn = document.createElement('div');
-        btn.classList.add('numpad-btn');
-        btn.textContent = i;
-        btn.addEventListener('click', () => handleNumberInput(i));
-        numpadEl.appendChild(btn);
-    }
-}
-
-function handleCellClick(index) {
-    const cells = document.querySelectorAll('.sudoku-cell');
-    
-    // Clear previous selections
-    cells.forEach(c => {
-        c.classList.remove('cell-selected-bg');
-        c.classList.remove('cell-peer-bg');
+function initEventListeners() {
+    // Difficulty
+    document.querySelectorAll('.diff-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.diff-btn').forEach(b => {
+                b.classList.remove('bg-blue-600', 'text-white');
+                b.classList.add('bg-white', 'text-gray-600');
+            });
+            e.target.classList.remove('bg-white', 'text-gray-600');
+            e.target.classList.add('bg-blue-600', 'text-white');
+            selectedDifficulty = e.target.dataset.diff;
+        });
     });
 
-    // Highlighting logic (demo version)
-    // Real implementation will calculate row, col and subgrid peers
-    cells[index].classList.add('cell-selected-bg');
-}
+    // Strategy
+    document.querySelectorAll('.algo-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.algo-btn').forEach(b => {
+                b.classList.remove('bg-blue-50', 'border-blue-400', 'text-blue-800');
+                b.classList.add('bg-white', 'text-gray-700');
+            });
+            e.target.classList.remove('bg-white', 'text-gray-700');
+            e.target.classList.add('bg-blue-50', 'border-blue-400', 'text-blue-800');
+            selectedAlgorithm = e.target.dataset.algo;
+        });
+    });
 
-function handleNumberInput(num) {
-    // Write logic here for inputting numbers from user interactions
-    console.log(`Input Number ${num} pressed`);
-}
-
-/** 
- * Matches to the given target screenshot to establish baseline look 
- */
-function mockInitialDemoState() {
-    const cells = document.querySelectorAll('.sudoku-cell');
+    document.getElementById('btn-generate').addEventListener('click', () => {
+        stopVisualization();
+        generatePuzzle();
+    });
     
-    const puzzle = [
-        [0, 0, 0, 2, 4, 7, 0, 0, 3],
-        [0, 0, 0, 0, 0, 0, 6, 0, 0],
-        [0, 7, 9, 8, 6, 3, 2, 5, 0],
-        [0, 9, 0, 6, 0, 0, 0, 0, 0],
-        [0, 0, 8, 3, 1, 0, 0, 0, 0],
-        [7, 4, 0, 0, 0, 0, 1, 0, 0],
-        [9, 0, 2, 0, 0, 0, 3, 0, 0],
-        [0, 0, 0, 4, 0, 0, 0, 0, 6],
-        [0, 0, 7, 5, 2, 6, 0, 0, 1]
-    ];
+    document.getElementById('btn-solve').addEventListener('click', () => {
+        stopVisualization();
+        solveInstantly();
+    });
+
+    document.getElementById('btn-visualize').addEventListener('click', startVisualization);
+    document.getElementById('btn-stop').addEventListener('click', stopVisualization);
+    
+    document.getElementById('btn-benchmark').addEventListener('click', () => {
+        stopVisualization();
+        runBenchmark();
+    });
+}
+
+// ============== RENDERERS ==============
+
+function renderGrid(board, actionCell = null, actionType = null) {
+    const cells = document.querySelectorAll('.sudoku-cell');
     
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
-            let val = puzzle[r][c];
-            if (val !== 0) {
-                let node = cells[r * 9 + c];
-                node.textContent = val;
-                node.classList.add('cell-prefilled');
+            const idx = r * 9 + c;
+            const node = cells[idx];
+            const val = board[r][c];
+            const initialVal = initialBoard[r] ? initialBoard[r][c] : 0;
+            
+            node.textContent = val !== 0 ? val : '';
+            
+            node.classList.remove('cell-fixed', 'cell-user', 'highlight-process', 'flash-red');
+            
+            if (initialVal !== 0) {
+                node.classList.add('cell-fixed');
+            } else if (val !== 0) {
+                node.classList.add('cell-user');
+            }
+            
+            if (actionCell && actionCell[0] === r && actionCell[1] === c) {
+                if (actionType === 'backtrack') {
+                    // Trigger reflow to restart animation
+                    void node.offsetWidth; 
+                    node.classList.add('flash-red');
+                } else {
+                    node.classList.add('highlight-process');
+                }
             }
         }
     }
+}
+
+function updateMetrics(metrics) {
+    if(!metrics) return;
+    document.getElementById('metric-time').textContent = metrics.time_elapsed ? metrics.time_elapsed.toFixed(3) + 's' : '0.0s';
+    document.getElementById('metric-states').textContent = metrics.states_explored || 0;
+    document.getElementById('metric-assigns').textContent = metrics.assignments_made || 0;
+    document.getElementById('metric-backtracks').textContent = metrics.backtracks || 0;
+}
+
+function updateStatus(status, pulse = false) {
+    const statBadge = document.getElementById('status-badge');
+    const progCont = document.getElementById('prog-container');
+    const bVis = document.getElementById('btn-visualize');
+    const bStop = document.getElementById('btn-stop');
     
+    statBadge.textContent = status;
+    
+    if (pulse) {
+        progCont.classList.remove('hidden');
+        bVis.classList.add('hidden');
+        bStop.classList.remove('hidden');
+    } else {
+        progCont.classList.add('hidden');
+        bVis.classList.remove('hidden');
+        bStop.classList.add('hidden');
+        document.querySelectorAll('.sudoku-cell').forEach(c => c.classList.remove('highlight-process'));
+    }
+}
+
+// ============== API CALLS ==============
+
+async function generatePuzzle() {
+    try {
+        updateStatus('Generating...', true);
+        const res = await fetch(`${API_BASE_URL}/generate`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ difficulty: selectedDifficulty })
+        });
+        const data = await res.json();
+        initialBoard = data.puzzle.map(row => [...row]);
+        currentBoard = data.puzzle.map(row => [...row]);
+        renderGrid(currentBoard);
+        updateMetrics({ time_elapsed: 0, states_explored: 0, assignments_made: 0, backtracks: 0 });
+        updateStatus('Ready');
+        document.getElementById('chart-container').classList.add('hidden');
+    } catch (e) {
+        console.error(e);
+        updateStatus('Error');
+    }
+}
+
+async function solveInstantly() {
+    if (!initialBoard.length) return;
+    try {
+        updateStatus('Solving...', true);
+        const res = await fetch(`${API_BASE_URL}/solve`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                board: initialBoard.map(row => [...row]),
+                algorithm: selectedAlgorithm
+            })
+        });
+        const data = await res.json();
+        if (data.solved) {
+            currentBoard = data.solution;
+            renderGrid(currentBoard);
+        }
+        updateMetrics(data.metrics);
+        updateStatus('Solved');
+    } catch (e) {
+        console.error(e);
+        updateStatus('Error');
+    }
+}
+
+// ============== SSE VISUALIZATION ==============
+
+function startVisualization() {
+    stopVisualization();
+    updateStatus('Streaming...', true);
+    
+    // We pass the diff param, so backend generates a fresh one & streams
+    const url = new URL(`${API_BASE_URL}/solve/stream`);
+    url.searchParams.append('algorithm', selectedAlgorithm);
+    url.searchParams.append('difficulty', selectedDifficulty);
+    
+    eventSource = new EventSource(url);
+    
+    eventSource.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        
+        if (data.type === 'done') {
+            stopVisualization();
+            updateMetrics(data.metrics);
+            updateStatus('Solved');
+            return;
+        }
+        
+        // Initial setup hook inside stream
+        if(initialBoard.length === 0 || document.querySelectorAll('.cell-fixed').length === 0) {
+            // Deduce board initial structure loosely mostly on first frame
+            initialBoard = data.board.map(r=>[...r]); // fallback logic 
+        }
+
+        currentBoard = data.board;
+        renderGrid(currentBoard, data.cell, data.action);
+        updateMetrics(data.metrics);
+    };
+    
+    eventSource.onerror = (e) => {
+        stopVisualization();
+        updateStatus('Stream Ended');
+    };
+}
+
+function stopVisualization() {
+    if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+        updateStatus('Canceled', false);
+    }
+}
+
+// ============== CHARTS ==============
+
+async function runBenchmark() {
+    try {
+        updateStatus('Benchmarking...', true);
+        const res = await fetch(`${API_BASE_URL}/benchmark`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ difficulty: selectedDifficulty })
+        });
+        const data = await res.json();
+        renderChart(data);
+        updateStatus('Benchmark Complete');
+    } catch (e) {
+        console.error(e);
+        updateStatus('Error');
+    }
+}
+
+function renderChart(benchmarkData) {
+    document.getElementById('chart-container').classList.remove('hidden');
+    
+    const labels = benchmarkData.map(d => d.algorithm.replace('_', ' ').toUpperCase());
+    const times = benchmarkData.map(d => d.metrics.time_elapsed);
+    const states = benchmarkData.map(d => d.metrics.states_explored);
+
+    const ctx = document.getElementById('benchmarkChart').getContext('2d');
+    
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
+    
+    chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Time Elapsed (s)',
+                    data: times,
+                    backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 1,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'States Explored',
+                    data: states,
+                    backgroundColor: 'rgba(249, 115, 22, 0.7)',
+                    borderColor: 'rgba(249, 115, 22, 1)',
+                    borderWidth: 1,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: { display: true, text: 'Time (s)' }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: { display: true, text: 'States' },
+                    grid: { drawOnChartArea: false }
+                }
+            }
+        }
+    });
+}
+{
     // Replicate top corner selection aesthetic
     cells[0].classList.add('cell-selected-bg');
     cells[1].classList.add('cell-peer-bg');

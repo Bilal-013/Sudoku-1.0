@@ -1,29 +1,41 @@
 """ Pydantic schemas for request and response validation """
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 class PuzzleRequest(BaseModel):
     """ Request structure to generate a new puzzle. """
     difficulty: str = "medium"
+
+class PuzzleResponse(BaseModel):
+    puzzle: List[List[int]]
+    solution: List[List[int]]
+    difficulty: str
+    empty_cells: int
 
 class SolveRequest(BaseModel):
     """ Request structure containing the initial board and chosen AI algorithm to solve. """
     board: List[List[int]]
     algorithm: str = "backtracking"
 
-class MetricsResponse(BaseModel):
-    """ Schema for returning algorithm performance metrics. """
-    time_taken_ms: float
-    nodes_expanded: int
-    steps_taken: int
+class MetricsData(BaseModel):
+    time_elapsed: float
+    states_explored: int
+    backtracks: int
+    assignments_made: int
+
+class BenchmarkMetricsResponse(BaseModel):
+    algorithm: str
+    metrics: MetricsData
 
 class SolveResponse(BaseModel):
     """ Complete response containing the solved board and performance metrics. """
     solved: bool
-    solution: List[List[int]]
-    metrics: MetricsResponse
+    solution: Optional[List[List[int]]] = None
+    metrics: MetricsData
 
 class StepEvent(BaseModel):
-    """ Schema for emitting a single step in a Server-Sent Events (SSE) stream or Websocket. """
-    board_state: List[List[int]]
-    step_description: str
+    board: List[List[int]]
+    action: str
+    cell: List[int]
+    value: int
+    metrics: MetricsData

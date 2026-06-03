@@ -3,92 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Sudoku Target GUI</title>
+    <title>AI Sudoku Solver</title>
     <!-- Tailwind CSS (CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-[#f0f2f5] min-h-screen flex justify-center items-center font-sans tracking-wide select-none">
-    
-    <!-- Mobile App Container -->
-    <div id="app" class="bg-white w-full max-w-md h-full sm:h-auto sm:min-h-[850px] sm:shadow-2xl sm:border border-gray-100 flex flex-col pt-8 pb-4">
+<body class="bg-gray-100 text-gray-800 min-h-screen flex flex-col items-center pt-8 pb-8 font-sans">
+    <div id="app" class="bg-white shadow-2xl rounded-xl w-full max-w-5xl flex flex-col md:flex-row overflow-hidden border border-gray-200">
         
-        <!-- Header Section -->
-        <header class="flex justify-between items-center px-4 mb-3">
-            <h1 class="text-[#2b3a56] text-3xl font-bold tracking-widest leading-none">0</h1>
-            <button class="text-[#3b5998] opacity-80 pr-2 pb-1">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            </button>
-        </header>
+        <!-- Left Panel: Controls -->
+        <div class="w-full md:w-1/3 bg-gray-50 border-r border-gray-200 p-6 flex flex-col gap-6">
+            <header>
+                <h1 class="text-3xl font-bold text-slate-800 tracking-tight">AI Sudoku</h1>
+                <p class="text-sm text-slate-500 mt-1 uppercase tracking-widest font-semibold">Heuristic Solvers</p>
+            </header>
 
-        <!-- Status / Toolbar Section -->
-        <div class="px-3 flex justify-between items-end text-[11px] text-gray-500 font-semibold uppercase tracking-wider mb-2">
-            <div class="flex flex-col mb-0.5">
-                <span class="opacity-80">Difficulty</span>
-                <span class="text-gray-700 capitalize tracking-normal text-sm font-medium pt-1">Expert</span>
-            </div>
-            <div class="flex flex-col mb-0.5">
-                <span class="opacity-80">Mistakes</span>
-                <span class="text-gray-700 font-medium tracking-normal text-sm pt-1">0/3</span>
-            </div>
-            <div class="flex flex-col relative right-1">
-                <span class="opacity-80 pb-[1px]">Time</span>
-                <div class="flex items-center gap-2 -mb-2">
-                    <span class="text-gray-700 tracking-wider text-sm">00:00</span>
-                    <button class="bg-[#eaedf4] text-[#334b7a] w-7 h-7 rounded-full flex justify-center items-center shadow-sm relative bottom-1 active:scale-95"><span>||</span></button>
+            <!-- Difficulty Selector -->
+            <div>
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Difficulty</h3>
+                <div class="flex rounded-md overflow-hidden border border-gray-300 shadow-sm" id="diff-tabs">
+                    <button class="diff-btn flex-1 py-2 text-sm font-medium bg-white text-gray-600 hover:bg-gray-50 transition-colors" data-diff="easy">Easy</button>
+                    <button class="diff-btn flex-1 py-2 text-sm font-medium bg-blue-600 text-white transition-colors" data-diff="medium">Med</button>
+                    <button class="diff-btn flex-1 py-2 text-sm font-medium bg-white text-gray-600 hover:bg-gray-50 transition-colors" data-diff="hard">Hard</button>
+                    <button class="diff-btn flex-1 py-2 text-sm font-medium bg-white text-gray-600 hover:bg-gray-50 transition-colors" data-diff="expert">Expert</button>
                 </div>
+            </div>
+
+            <!-- Algorithm Selector -->
+            <div>
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">AI Algorithm</h3>
+                <div class="flex flex-col gap-2" id="algo-tabs">
+                    <button class="algo-btn px-4 py-3 rounded-md text-sm font-medium text-left border border-gray-300 bg-blue-50 border-blue-400 text-blue-800 shadow-sm transition-all" data-algo="backtracking">1. Backtracking DFS</button>
+                    <button class="algo-btn px-4 py-3 rounded-md text-sm font-medium text-left border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-all" data-algo="forward_checking">2. Forward Checking</button>
+                    <button class="algo-btn px-4 py-3 rounded-md text-sm font-medium text-left border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-all" data-algo="informed">3. Informed CSP (MAC-3 & MRV)</button>
+                    <button class="algo-btn px-4 py-3 rounded-md text-sm font-medium text-left border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-all" data-algo="local_search">4. Local Search (Sim Ann.)</button>
+                </div>
+            </div>
+
+            <div class="flex-grow"></div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col gap-3">
+                <button id="btn-generate" class="w-full py-3 rounded-md font-semibold text-slate-700 bg-slate-200 hover:bg-slate-300 transition-colors">
+                    Generate Puzzle
+                </button>
+                <button id="btn-solve" class="w-full py-3 rounded-md font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-md transition-colors">
+                    Solve Instantly
+                </button>
+                <div class="flex gap-2 w-full">
+                    <button id="btn-visualize" class="flex-1 py-3 rounded-md font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md transition-colors">
+                        Visualise Steps
+                    </button>
+                    <button id="btn-stop" class="hidden w-[80px] py-3 rounded-md font-semibold text-white bg-red-600 hover:bg-red-700 shadow-md transition-colors">
+                        Stop
+                    </button>
+                </div>
+                <button id="btn-benchmark" class="w-full py-2 mt-2 rounded-md text-sm font-bold text-orange-600 border border-orange-200 bg-orange-50 hover:bg-orange-100 transition-colors">
+                    Run Benchmark
+                </button>
             </div>
         </div>
 
-        <!-- The 9x9 Sudoku Board Grid -->
-        <div id="sudoku-board" class="w-[96%] mx-auto aspect-square bg-white border-2 border-[#1c2738] grid grid-cols-9 grid-rows-9 focus:outline-none mb-6">
-            <!-- Grid generated by JS based on 3x3 block styles -->
-        </div>
-
-        <div class="flex-grow"></div>
-        
-        <!-- Action Buttons Context Bar -->
-        <div class="flex justify-evenly px-4 mb-10 text-[11px] tracking-wide text-[#7d8694] uppercase font-semibold">
-            <!-- Undo action -->
-            <button class="flex flex-col justify-center items-center gap-2 w-14 group transition-transform active:scale-90">
-                <div class="rounded-full flex items-center justify-center text-[#40567f] group-active:text-gray-900 border border-transparent w-[38px] h-[38px]">
-                    <svg class="w-6 h-6 transform -scale-x-100" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
-                </div>
-                <span>Undo</span>
-            </button>
+        <!-- Center/Right Panel -->
+        <div class="w-full md:w-2/3 p-6 flex flex-col gap-6 bg-white overflow-y-auto">
             
-            <!-- Erase action -->
-            <button class="flex flex-col justify-center items-center gap-2 w-14 group transition-transform active:scale-90">
-                <div class="rounded-full flex items-center justify-center text-[#40567f] group-active:text-gray-900 border border-transparent w-[38px] h-[38px]">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 21L21 7L17 3L3 17V21H7Z" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8L16 12" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 21H21" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <!-- Context Header -->
+            <div class="flex justify-between items-end border-b border-gray-200 pb-2">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800" id="board-title">Grid View</h2>
+                    <p class="text-sm border text-blue-700 font-mono tracking-tight mt-1 bg-blue-50 px-2 py-0.5 rounded inline-block" id="status-badge">Idle</p>
                 </div>
-                <span>Erase</span>
-            </button>
+                <div id="prog-container" class="hidden text-right">
+                    <span class="text-xs font-bold text-gray-500 uppercase">Live Stream</span>
+                    <div class="w-32 h-2 mt-1 bg-gray-200 rounded-full overflow-hidden">
+                        <div class="w-full h-full bg-indigo-500 animate-pulse"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Row: The Grid + Metrics -->
+            <div class="flex flex-col lg:flex-row gap-8 items-start">
+                
+                <!-- The 9x9 Sudoku Board Grid -->
+                <div id="sudoku-board" class="shrink-0 w-[360px] h-[360px] sm:w-[400px] sm:h-[400px] bg-white border-2 border-slate-800 grid grid-cols-9 grid-rows-9 focus:outline-none shadow-sm">
+                    <!-- Grid generated by JS -->
+                </div>
+
+                <!-- Metrics Panel -->
+                <div class="flex-grow w-full grid grid-cols-2 gap-4">
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <span class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-1">Time Elapsed</span>
+                        <div class="text-xl font-semibold text-slate-800 font-mono" id="metric-time">0.0 ms</div>
+                    </div>
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <span class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-1">States Explored</span>
+                        <div class="text-xl font-semibold text-blue-700 font-mono" id="metric-states">0</div>
+                    </div>
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <span class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-1">Assignments</span>
+                        <div class="text-xl font-semibold text-slate-800 font-mono" id="metric-assigns">0</div>
+                    </div>
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <span class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-1">Backtracks</span>
+                        <div class="text-xl font-semibold text-red-600 font-mono" id="metric-backtracks">0</div>
+                    </div>
+                </div>
+            </div>
             
-            <!-- Notes toggle -->
-            <button class="flex flex-col justify-center items-center gap-2 w-14 relative group transition-transform active:scale-90">
-                <span class="absolute -top-1 -right-0 text-[9px] bg-[#d3d9e8] text-gray-500 font-bold tracking-tight rounded-full px-2 py-[2px] z-10">OFF</span>
-                <div class="rounded-full flex items-center justify-center text-[#40567f] group-active:text-gray-900 border border-transparent w-[38px] h-[38px]">
-                    <svg class="w-[22px] h-[22px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+            <!-- Comparison Dashboard Chart Area -->
+            <div id="chart-container" class="mt-4 pt-4 border-t border-gray-200 hidden pb-4">
+                <h3 class="text-sm font-bold text-gray-600 uppercase tracking-widest mb-4">Benchmark Dashboard</h3>
+                <div class="w-full relative h-[250px]">
+                    <canvas id="benchmarkChart"></canvas>
                 </div>
-                <span>Notes</span>
-            </button>
+            </div>
 
-            <!-- Hint button -->
-            <button class="flex flex-col justify-center items-center gap-2 w-14 relative group transition-transform active:scale-90">
-                <span class="absolute -top-2 -right-0 text-[10px] bg-[#3169d4] text-white font-bold rounded-full w-[18px] h-[18px] flex items-center justify-center z-10">1</span>
-                <div class="rounded-full flex items-center justify-center text-[#40567f] group-active:text-gray-900 border border-transparent w-[38px] h-[38px]">
-                    <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
-                </div>
-                <span>Hint</span>
-            </button>
         </div>
-
-        <!-- Numeric Keypad input area -->
-        <div id="numpad" class="flex justify-between w-full px-3 pb-8 text-[#264c9d] font-normal text-[40px] leading-none">
-            <!-- Numpad injected by app.js -->
-        </div>
-
     </div>
 
     <!-- Main Logic -->
