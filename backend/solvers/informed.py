@@ -110,6 +110,14 @@ class InformedSolver(SudokuSolver):
     def solve_steps(self) -> Generator[Dict[str, Any], None, None]:
         self.metrics.start()
         
+        yield {
+            "board": [row[:] for row in self.csp.board],
+            "action": "start",
+            "cell": [-1, -1],
+            "value": -1,
+            "metrics": self.metrics.snapshot()
+        }
+        
         queue = deque()
         for cell in self.domains.keys():
             if self.csp.board[cell[0]][cell[1]] == 0:
@@ -129,6 +137,13 @@ class InformedSolver(SudokuSolver):
                 }
                 if len(self.domains[xi]) == 0:
                     self.metrics.stop()
+                    yield {
+                        "board": [row[:] for row in self.csp.board],
+                        "action": "complete",
+                        "cell": [-1, -1],
+                        "value": -1,
+                        "metrics": self.metrics.snapshot()
+                    }
                     return
                 for xk in self.csp.get_neighbors(xi):
                     if xk != xj and self.csp.board[xk[0]][xk[1]] == 0:
@@ -179,3 +194,11 @@ class InformedSolver(SudokuSolver):
             
         yield from backtrack()
         self.metrics.stop()
+        
+        yield {
+            "board": [row[:] for row in self.csp.board],
+            "action": "complete",
+            "cell": [-1, -1],
+            "value": -1,
+            "metrics": self.metrics.snapshot()
+        }

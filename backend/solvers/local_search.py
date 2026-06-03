@@ -102,6 +102,14 @@ class LocalSearchSolver(SudokuSolver):
     def solve_steps(self) -> Generator[Dict[str, Any], None, None]:
         self.metrics.start()
         
+        yield {
+            "board": [row[:] for row in self.csp.board],
+            "action": "start",
+            "cell": [-1, -1],
+            "value": -1,
+            "metrics": self.metrics.snapshot()
+        }
+        
         board = copy.deepcopy(self.csp.board)
         self._fill_board(board)
         
@@ -111,7 +119,7 @@ class LocalSearchSolver(SudokuSolver):
             self.metrics.stop()
             yield {
                 "board": [row[:] for row in board],
-                "action": "assign",
+                "action": "complete",
                 "cell": [-1, -1],
                 "value": -1,
                 "metrics": self.metrics.snapshot()
@@ -157,8 +165,22 @@ class LocalSearchSolver(SudokuSolver):
                 
             if current_cost == 0:
                 self.metrics.stop()
+                yield {
+                    "board": [row[:] for row in board],
+                    "action": "complete",
+                    "cell": [-1, -1],
+                    "value": -1,
+                    "metrics": self.metrics.snapshot()
+                }
                 return
                 
             T *= cooling_rate
             
         self.metrics.stop()
+        yield {
+            "board": [row[:] for row in board],
+            "action": "complete",
+            "cell": [-1, -1],
+            "value": -1,
+            "metrics": self.metrics.snapshot()
+        }

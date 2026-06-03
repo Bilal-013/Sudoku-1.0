@@ -73,6 +73,14 @@ class ForwardCheckingSolver(SudokuSolver):
     def solve_steps(self) -> Generator[Dict[str, Any], None, None]:
         self.metrics.start()
         
+        yield {
+            "board": [row[:] for row in self.csp.board],
+            "action": "start",
+            "cell": [-1, -1],
+            "value": -1,
+            "metrics": self.metrics.snapshot()
+        }
+        
         def forward_check(cell, value, domains):
             removed = {}
             for neighbor in self.csp.get_neighbors(cell):
@@ -149,3 +157,11 @@ class ForwardCheckingSolver(SudokuSolver):
 
         yield from backtrack(self.current_domains)
         self.metrics.stop()
+        
+        yield {
+            "board": [row[:] for row in self.csp.board],
+            "action": "complete",
+            "cell": [-1, -1],
+            "value": -1,
+            "metrics": self.metrics.snapshot()
+        }

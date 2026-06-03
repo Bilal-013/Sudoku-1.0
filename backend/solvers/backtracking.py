@@ -48,6 +48,14 @@ class BacktrackingSolver(SudokuSolver):
     def solve_steps(self) -> Generator[Dict[str, Any], None, None]:
         self.metrics.start()
         
+        yield {
+            "board": [row[:] for row in self.csp.board],
+            "action": "start",
+            "cell": [-1, -1],
+            "value": -1,
+            "metrics": self.metrics.snapshot()
+        }
+        
         def backtrack():
             self.metrics.record_state()
             if self.csp.is_complete():
@@ -95,3 +103,11 @@ class BacktrackingSolver(SudokuSolver):
             
         yield from backtrack()
         self.metrics.stop()
+        
+        yield {
+            "board": [row[:] for row in self.csp.board],
+            "action": "complete",
+            "cell": [-1, -1],
+            "value": -1,
+            "metrics": self.metrics.snapshot()
+        }

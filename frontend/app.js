@@ -84,6 +84,17 @@ function initEventListeners() {
     });
 }
 
+function showToast(message, isError=false) {
+    const toast = document.createElement('div');
+    toast.className = `fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg font-bold text-white transition-opacity z-50 ${isError ? 'bg-red-600' : 'bg-green-600'}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
 // ============== RENDERERS ==============
 
 function renderGrid(board, actionCell = null, actionType = null) {
@@ -111,7 +122,7 @@ function renderGrid(board, actionCell = null, actionType = null) {
                     // Trigger reflow to restart animation
                     void node.offsetWidth; 
                     node.classList.add('flash-red');
-                } else {
+                } else if (actionType !== 'start' && actionType !== 'complete') {
                     node.classList.add('highlight-process');
                 }
             }
@@ -127,7 +138,7 @@ function updateMetrics(metrics) {
     document.getElementById('metric-backtracks').textContent = metrics.backtracks || 0;
 }
 
-function updateStatus(status, pulse = false) {
+function updateStatus(status, pulse = false, isReconnect = false) {
     const statBadge = document.getElementById('status-badge');
     const progCont = document.getElementById('prog-container');
     const bVis = document.getElementById('btn-visualize');
@@ -139,10 +150,24 @@ function updateStatus(status, pulse = false) {
         progCont.classList.remove('hidden');
         bVis.classList.add('hidden');
         bStop.classList.remove('hidden');
+        bStop.textContent = "Stop";
     } else {
         progCont.classList.add('hidden');
-        bVis.classList.remove('hidden');
-        bStop.classList.add('hidden');
+        
+        if (isReconnect) {
+            bVis.classList.add('hidden');
+            bStop.classList.remove('hidden');
+            bStop.textContent = "Reconnect";
+            bStop.onclick = () => {
+                bStop.onclick = stopVisualization;
+                bStop.textContent = "Stop";
+                startVisualization();
+            };
+        } else {
+            bVis.classList.remove('hidden');
+            bStop.classList.add('hidden');
+        }
+        
         document.querySelectorAll('.sudoku-cell').forEach(c => c.classList.remove('highlight-process'));
     }
 }
@@ -157,6 +182,7 @@ async function generatePuzzle() {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ difficulty: selectedDifficulty })
         });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         initialBoard = data.puzzle.map(row => [...row]);
         currentBoard = data.puzzle.map(row => [...row]);
@@ -167,6 +193,7 @@ async function generatePuzzle() {
     } catch (e) {
         console.error(e);
         updateStatus('Error');
+        showToast('Failed to generate puzzle. API Error.', true);
     }
 }
 
@@ -183,6 +210,11 @@ async function solveInstantly() {
             })
         });
         const data = await res.json();
+        if (!res.ok) {
+            if (res.status === 422) throw new Error("Puzzle has no valid solution.");
+            if (res.status === 504) throw new Error("Solving timeout exceeded 30s.");
+            throw new Error(`HTTP ${res.status}`);
+        }
         if (data.solved) {
             currentBoard = data.solution;
             renderGrid(currentBoard);
@@ -192,13 +224,17 @@ async function solveInstantly() {
     } catch (e) {
         console.error(e);
         updateStatus('Error');
+        showToast(e.message || 'API Error occurred while solving.', true);
     }
 }
 
 // ============== SSE VISUALIZATION ==============
 
+let expectingClose = false;
+
 function startVisualization() {
     stopVisualization();
+    expectingClose = false;
     updateStatus('Streaming...', true);
     
     // We pass the diff param, so backend generates a fresh one & streams
@@ -212,16 +248,15 @@ function startVisualization() {
         const data = JSON.parse(e.data);
         
         if (data.type === 'done') {
+            expectingClose = true;
             stopVisualization();
             updateMetrics(data.metrics);
             updateStatus('Solved');
             return;
         }
         
-        // Initial setup hook inside stream
-        if(initialBoard.length === 0 || document.querySelectorAll('.cell-fixed').length === 0) {
-            // Deduce board initial structure loosely mostly on first frame
-            initialBoard = data.board.map(r=>[...r]); // fallback logic 
+        if (data.action === 'start') {
+            initialBoard = data.board.map(r=>[...r]); 
         }
 
         currentBoard = data.board;
@@ -230,13 +265,19 @@ function startVisualization() {
     };
     
     eventSource.onerror = (e) => {
-        stopVisualization();
-        updateStatus('Stream Ended');
+        eventSource.close();
+        if (!expectingClose) {
+            updateStatus('Stream Connection Lost', false, true);
+            showToast('SSE Connection interrupted.', true);
+        } else {
+            updateStatus('Canceled', false);
+        }
     };
 }
 
 function stopVisualization() {
     if (eventSource) {
+        expectingClose = true;
         eventSource.close();
         eventSource = null;
         updateStatus('Canceled', false);

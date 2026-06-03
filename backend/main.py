@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import json
 import logging
+import asyncio
 
 from .models import (
     PuzzleRequest, PuzzleResponse, SolveRequest, SolveResponse,
@@ -53,6 +54,22 @@ def get_solver_class(algorithm: str):
         raise HTTPException(status_code=400, detail=f"Unknown algorithm: {algorithm}")
     return mapping[alg]
 
+def validate_board(board: List[List[int]]):
+    if len(board) != 9 or any(len(row) != 9 for row in board):
+        raise HTTPException(status_code=400, detail="Board must be exactly 9x9.")
+    for r in board:
+        for val in r:
+            if not (0 <= val <= 9):
+                raise HTTPException(status_code=400, detail="Board values must be between 0 and 9.")
+
+@app.get("/health")
+def health_check():
+    """ Returns server status and loaded algorithms """
+    return {
+        "status": "ok",
+        "algorithms": ["backtracking", "informed", "local_search", "forward_checking"]
+    }
+
 @app.get("/")
 def read_root():
     """ Root endpoint verifying API is running. """
@@ -68,16 +85,24 @@ def generate_puzzle(request: PuzzleRequest):
     return PuzzleResponse(**data)
 
 @app.post("/solve", response_model=SolveResponse)
-def solve_puzzle(request: SolveRequest):
+async def solve_puzzle(request: SolveRequest):
     """
     Solve the provided puzzle board using the specified AI algorithm.
     """
+    validate_board(request.board)
     SolverClass = get_solver_class(request.algorithm)
     solver = SolverClass(request.board)
-    solution = solver.solve()
+    
+    try:
+        solution = await asyncio.wait_for(asyncio.to_thread(solver.solve), timeout=30.0)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Solving exceeded 30 seconds.")
+        
+    if solution is None:
+        raise HTTPException(status_code=422, detail="Puzzle has no valid solution.")
     
     return SolveResponse(
-        solved=(solution is not None),
+        solved=True,
         solution=solution,
         metrics=MetricsData(**solver.get_metrics())
     )
@@ -94,18 +119,9 @@ def solve_stream(algorithm: str = "backtracking", difficulty: str = "medium"):
         solver = SolverClass(board)
         steps = solver.solve_steps()
         
-        # Send initial problem board as an event or metadata maybe?
-        
         for step in steps:
             yield f"data: {json.dumps(step)}\n\n"
             
-        metrics = solver.get_metrics()
-        final_event = {
-            "type": "done",
-            "metrics": metrics
-        }
-        yield f"data: {json.dumps(final_event)}\n\n"
-        
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @app.post("/benchmark", response_model=List[BenchmarkMetricsResponse])
