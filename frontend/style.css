@@ -1,0 +1,66 @@
+/* Main Styles to override/accompany Tailwind for grid perfection */
+
+/* Base font setup favoring the system UI for native app feel */
+body {
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Sudoku Input Cell Defaults */
+.sudoku-cell {
+    border: 1px solid #d4d9de;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 2.1rem;
+    font-weight: 300;
+    color: #0b1526;
+    background-color: transparent;
+    cursor: pointer;
+    transition: background-color 0.1s;
+}
+.sudoku-cell:active {
+    background-color: #e2e8f0;
+}
+
+/* Stronger border demarcations based on the 3x3 blocking rules */
+.col-group-end {
+    border-right: 2px solid #1c2738 !important;
+}
+
+.row-group-end {
+    border-bottom: 2px solid #1c2738 !important;
+}
+
+/* Selected UI States matching the screenshot demoing the top block */
+.cell-selected-bg {
+    background-color: #bbdefb !important; /* Soft light blue */
+}
+
+/* Soft shade for related group highlighting */
+.cell-peer-bg {
+    background-color: #e4eaf5 !important; 
+}
+
+/* Pre-filled number styles */
+.cell-prefilled {
+    font-weight: 500;
+}
+
+/* User filled number styles (often blue) */
+.cell-user-filled {
+    color: #2b56a4;
+    font-weight: 400;
+}
+
+/* Base class for un-selected inputs */
+.numpad-btn {
+    user-select: none;
+    cursor: pointer;
+    transition: transform 0.05s ease, opacity 0.05s ease;
+    width: 100%;
+    text-align: center;
+}
+.numpad-btn:active {
+    transform: scale(0.85);
+    opacity: 0.6;
+}
