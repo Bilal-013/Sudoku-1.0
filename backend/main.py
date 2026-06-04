@@ -6,32 +6,22 @@ from typing import List
 import json
 import logging
 import asyncio
+from contextlib import asynccontextmanager
 
-from .models import (
+from models import (
     PuzzleRequest, PuzzleResponse, SolveRequest, SolveResponse,
     BenchmarkMetricsResponse, MetricsData
 )
-from .generator import PuzzleGenerator
-from .solvers.backtracking import BacktrackingSolver
-from .solvers.informed import InformedSolver
-from .solvers.local_search import LocalSearchSolver
-from .solvers.forward_checking import ForwardCheckingSolver
-
-app = FastAPI(title="AI Sudoku Solver API")
-
-# Configure CORS for localhost (frontend development)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], # requested: all origins
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+from generator import PuzzleGenerator
+from solvers.backtracking import BacktrackingSolver
+from solvers.informed import InformedSolver
+from solvers.local_search import LocalSearchSolver
+from solvers.forward_checking import ForwardCheckingSolver
 
 logger = logging.getLogger("sudoku_startup")
 
-@app.on_event("startup")
-def run_sanity_check():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     gen = PuzzleGenerator()
     for diff in ["easy", "medium", "hard", "expert"]:
         puzzle_data = gen.generate(diff)
@@ -41,6 +31,18 @@ def run_sanity_check():
             logger.info(f"Startup check ok: {diff} solved successfully.")
         else:
             logger.error(f"Startup check failed: {diff} could not be solved!")
+    yield
+
+app = FastAPI(title="AI Sudoku Solver API", lifespan=lifespan)
+
+# Configure CORS for localhost (frontend development)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # requested: all origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 def get_solver_class(algorithm: str):
     mapping = {

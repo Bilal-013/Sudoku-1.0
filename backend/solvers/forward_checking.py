@@ -1,5 +1,5 @@
 """ Backtracking augmented with Forward Checking for early failure detection. """
-from .base import SudokuSolver
+from solvers.base import SudokuSolver
 from typing import Generator, Any, List, Dict
 import copy
 

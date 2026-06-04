@@ -1,5 +1,5 @@
 """ Local Search solver utilizing Simulated Annealing. """
-from .base import SudokuSolver
+from solvers.base import SudokuSolver
 from typing import Generator, Any, List, Dict
 import random, math, copy
 

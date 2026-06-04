@@ -1,5 +1,5 @@
 """ Standard Backtracking Depth-First Search solver implementation. """
-from .base import SudokuSolver
+from solvers.base import SudokuSolver
 from typing import Generator, Any, List, Dict
 
 class BacktrackingSolver(SudokuSolver):

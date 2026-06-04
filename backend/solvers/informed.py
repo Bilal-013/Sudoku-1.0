@@ -1,5 +1,5 @@
 """ Informed solver combining CSP concepts: AC-3, MRV, and Degree Heuristics. """
-from .base import SudokuSolver
+from solvers.base import SudokuSolver
 from typing import Generator, Any, List, Dict, Tuple
 from collections import deque
 import copy

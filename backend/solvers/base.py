@@ -2,7 +2,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Generator, Any, Tuple, Dict
 import copy
-from ..metrics import MetricsTracker
+from metrics import MetricsTracker
 
 class SudokuCSP:
     """ CSP formulation of a Sudoku puzzle. """
